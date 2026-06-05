@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-notes_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-notes_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    # Notice we PULL from GitHub instead of building!
+    # The pipeline will replace ${IMAGE_TAG} during deployment
+    image: ${GHCR_BACKEND_IMAGE:-backend-image-name}
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgres://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-notes_db}
+      - SECRET_KEY=${SECRET_KEY:-your_production_secret_key}
+      - DEBUG=False
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: ${GHCR_FRONTEND_IMAGE:-frontend-image-name}
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  # REVERSE PROXY: Caddy automatically routes traffic and handles HTTPS
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+
+  # MONITORING: Uptime Kuma to watch the stack
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    restart: unless-stopped
+    ports:
+      - "3001:3001" # Access dashboard via EC2_IP:3001
+    volumes:
+      - uptime-kuma-data:/app/data
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+  uptime-kuma-data:
