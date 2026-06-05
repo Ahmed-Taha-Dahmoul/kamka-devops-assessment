@@ -134,5 +134,8 @@ jobs:
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
             
-            # 6. Clean up old unused images to save EC2 disk space
+            # 6. FORCE CADDY TO RELOAD THE NEW CADDYFILE
+            docker compose -f docker-compose.prod.yml restart caddy
+
+            # 7. Clean up old unused images to save EC2 disk space
             docker image prune -af
