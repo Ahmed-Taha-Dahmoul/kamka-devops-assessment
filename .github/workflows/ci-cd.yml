@@ -78,6 +78,14 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }} # Only push if merging to main
           tags: ${{ env.REGISTRY }}/${{ env.REPO }}-backend:${{ github.sha }},${{ env.REGISTRY }}/${{ env.REPO }}-backend:latest
 
+      - name: Build and Push Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.REGISTRY }}/${{ env.REPO }}-backend:${{ github.sha }},${{ env.REGISTRY }}/${{ env.REPO }}-backend:latest
+          provenance: false   # <--- ADD THIS LINE
+
       - name: Build and Push Frontend Image
         uses: docker/build-push-action@v5
         with:
@@ -86,6 +94,8 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.REPO }}-frontend:${{ github.sha }},${{ env.REGISTRY }}/${{ env.REPO }}-frontend:latest
           build-args: |
             VITE_API_URL=/api
+          provenance: false   # <--- ADD THIS LINE
+          
 
   # STAGE 3: Actual EC2 Deployment
   deploy:
