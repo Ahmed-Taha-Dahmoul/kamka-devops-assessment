@@ -36,7 +36,7 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 3 
 
   # The React Frontend Service
   frontend:
