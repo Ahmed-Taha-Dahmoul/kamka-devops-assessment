@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # The Database Service
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-notes_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-notes_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # The Django API Service
+  backend:
+    build: 
+      context: ./backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Connects to the local DB service using internal Docker DNS
+      - DATABASE_URL=postgres://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-notes_db}
+      - SECRET_KEY=${SECRET_KEY:-insecure_default_key_for_local_dev}
+      - DEBUG=False
+    depends_on:
+      db:
+        condition: service_healthy # Wait for DB to be fully ready before starting
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # The React Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Browser will call this URL to reach the backend
+        - VITE_API_URL=http://localhost:8000/api
+    restart: unless-stopped
+    ports:
+      - "5173:80" # Map host 5173 to container 80
+    depends_on:
+      backend:
+        condition: service_healthy # Wait for API to be ready before starting
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+# Define named volume for database persistence
+volumes:
+  postgres_data:
