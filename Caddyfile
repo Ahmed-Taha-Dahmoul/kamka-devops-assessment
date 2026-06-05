@@ -2,12 +2,11 @@
 # If you get a domain name later, you just replace ":80" with "yourdomain.com" 
 # and Caddy automatically generates a Let's Encrypt SSL certificate!
 :80 {
-    # Route API requests to the Django backend container
-    handle_path /api/* {
+    # Changed from handle_path to handle!
+    handle /api/* {
         reverse_proxy backend:8000
     }
 
-    # Route everything else to the React frontend container
     handle {
         reverse_proxy frontend:80
     }
