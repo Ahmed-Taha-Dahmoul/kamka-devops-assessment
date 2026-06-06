@@ -1,122 +1,95 @@
-# 🚀 Notes Application Infrastructure
+# Kamka IT DevOps Assessment - Notes App Infrastructure
 
-This repository contains the complete deployment lifecycle for a 3-tier Notes application (React Frontend, Django API, PostgreSQL Database). It was built specifically for the **Kamka IT DevOps Internship assessment (Summer 2026)**, focusing on clean container hygiene, CI/CD automation, secure reverse-proxying, and observability.
+This repository contains a full deployment lifecycle for a 3-tier Notes application (React Frontend, Django API, PostgreSQL Database). It was built specifically for the **Kamka IT Cloud & DevOps Intern** assessment, focusing on reproducibility, clean containerization, and automated CI/CD.
 
----
-
-## 🌐 Live Production Environment
-- **Live Application (HTTPS):** [https://kamka-ahmed.duckdns.org](https://kamka-ahmed.duckdns.org) *(Replace with your exact DuckDNS domain)*
-- **Observability Dashboard (Uptime Kuma):** [http://YOUR_EC2_IP:3001](http://YOUR_EC2_IP:3001) *(Replace with your EC2 IP)*
-
----
-
-## 🛠️ Prerequisites
-To run this application locally, you only need:
-- [Git](https://git-scm.com/)
-- [Docker Engine](https://docs.docker.com/get-docker/) (v20.10+)
-- [Docker Compose](https://docs.docker.com/compose/install/) (v2.0+)
+## 🚀 Live Environment (Production)
+- **Live Application (HTTPS):** https://kamka-ahmed.duckdns.org
+- **Monitoring Dashboard (Uptime Kuma):** http://52.44.45.240:3001
+*(Note: If you used a different DuckDNS name, just replace the URL above!)*
 
 ---
 
-## ⚙️ Local Setup & Run Instructions (Reproducibility)
+## 🛠️ Local Development Setup (Reproducibility)
+This project is designed to be **100% reproducible** on any machine. You do not need Node.js or Python installed locally—only Docker and Git.
 
-Follow these steps to bring up the entire stack locally in less than 2 minutes:
+### Prerequisites
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose
+- Git
 
-### 1. Clone the repository
+### Step-by-Step Guide
+**1. Clone the repository:**
 ```bash
 git clone https://github.com/Ahmed-Taha-Dahmoul/kamka-devops-assessment.git
 cd kamka-devops-assessment
 ```
 
-### 2. Supply Your Own Secrets
-Security hygiene is maintained by never committing `.env` files. To supply your own environment variables, copy the provided `.example` files:
-
+**2. Supply Secrets / Environment Variables:**
+No secrets are committed to this repository. To run the app locally, copy the provided example environment files:
 ```bash
-# Setup Backend secrets
 cp backend/.env.example backend/.env
-
-# Setup Frontend secrets
 cp frontend/.env.example frontend/.env
 ```
-*(Note: The `docker-compose.yml` is configured with safe fallback variables. If a reviewer skips this step, the local stack will still build and run with secure defaults).*
+*Note: The `docker-compose.yml` file uses safe fallback defaults (`${VARIABLE:-default}`). If a reviewer chooses to skip the `.env` step entirely, the application will still build and run perfectly using default local credentials.*
 
-### 3. Spin up the Stack
-Build and run the Database, Backend API, and Frontend using Docker Compose:
+**3. Spin up the stack:**
+Run the following command from the root directory:
 ```bash
 docker compose up -d --build
 ```
 
-### 4. Verify the Local Services
-Once the containers are running and healthy, you can access:
-- **Frontend App:** [http://localhost:5173](http://localhost:5173)
-- **Backend API Docs:** [http://localhost:8000/api/notes/](http://localhost:8000/api/notes/)
-- **API Healthcheck:** [http://localhost:8000/health/](http://localhost:8000/health/)
+**4. Access the Application Locally:**
+- **Frontend App:** `http://localhost:5173`
+- **Django API Docs/Browser:** `http://localhost:8000/api/notes/`
+- **API Healthcheck:** `http://localhost:8000/health/`
 
-To safely stop the local stack:
+To shut down and clean up:
 ```bash
 docker compose down -v
 ```
 
 ---
 
-## 📁 Repository Structure
+## 📁 Repository Structure & Highlights
 
-```text
-kamka-devops-assessment/
-├── .github/workflows/
-│   └── ci-cd.yml          # GitHub Actions Pipeline (Test, Build, Push, Deploy)
-├── backend/
-│   ├── core/              # Django settings and URL configurations
-│   ├── notes/             # API Models, Views, and Serializers
-│   ├── .env.example       # Example environment file
-│   ├── Dockerfile         # Python slim production Dockerfile (non-root)
-│   └── requirements.txt   # Backend dependencies
-├── frontend/
-│   ├── src/               # React components and App source code
-│   ├── .env.example       # Example frontend env file
-│   ├── Dockerfile         # Multi-stage production Dockerfile
-│   └── nginx.conf         # Custom Nginx configuration for SPA routing
-├── scripts/
-│   └── backup_db.sh       # Safe PostgreSQL backup script
-├── Caddyfile              # Reverse proxy configuration (Automatic Let's Encrypt HTTPS)
-├── docker-compose.yml     # Local Development Configuration
-└── docker-compose.prod.yml# Production EC2 Configuration (Pulls from GHCR)
-```
+- **`frontend/`**: React/Vite application. Uses a **multi-stage Dockerfile** (Node build -> Nginx Alpine) to keep the final image incredibly small.
+- **`backend/`**: Django REST API. Uses a Python Slim image, runs as a **non-root user** (`appuser`), and exposes a `/health/` endpoint.
+- **`docker-compose.yml`**: The local Dev environment. Builds code from source and utilizes `depends_on` with `service_healthy` conditions for safe startup ordering.
+- **`docker-compose.prod.yml`**: The Production environment. Pulls immutable, pre-built images from GHCR and adds Caddy and Uptime Kuma to the stack.
+- **`Caddyfile`**: Reverse proxy configuration that automatically handles routing and provisions HTTPS via Let's Encrypt.
+- **`.github/workflows/ci-cd.yml`**: The Trunk-based CI/CD pipeline.
+- **`scripts/backup_db.sh`**: A strict, automated Bash script for database backups.
 
 ---
 
-## 🌍 Environment Parity (Dev vs. Prod)
+## 🔄 CI/CD Pipeline Architecture
+The pipeline is powered by **GitHub Actions** and uses **GitHub Container Registry (GHCR)** to store images. It is divided into three distinct stages:
 
-Great care was taken to ensure development and production environments maintain high parity while serving their distinct purposes:
-
-- **Local Development (`docker-compose.yml`):** Builds images directly from local source code to allow for rapid iteration. Ports are exposed directly to `localhost`.
-- **Production (`docker-compose.prod.yml`):** Never builds from source on the target host. It pulls immutable, pre-built Docker artifacts (tagged with the git commit SHA) directly from GitHub Container Registry (GHCR). Application ports are hidden from the public; all traffic is securely routed through a **Caddy Reverse Proxy**, which automatically provisions and manages Let's Encrypt HTTPS certificates.
+1. **Lint & Test:** Runs automatically on Pull Requests and Pushes. It provides fast feedback by verifying the Django syntax and ensuring the React app successfully compiles before attempting slow Docker builds.
+2. **Build & Push:** Runs on pushes to `main`. Builds the multi-stage Docker images and pushes them securely to GHCR, tagged with the Git commit SHA.
+3. **Deploy to EC2:** Triggered conditionally (`if: github.ref == 'refs/heads/main'`). Securely copies the production `docker-compose` files to the AWS EC2 instance, pulls the new images, restarts Caddy to apply routing changes, and prunes old dangling images to preserve server disk space.
 
 ---
 
-## 🛡️ Bash Automation: Database Backups
+## 🛡️ Bash Automation (Database Backup)
+The `scripts/` directory contains a genuine automation script to safely back up the PostgreSQL database without requiring entering the container manually. 
 
-A strict, secure bash script is included to automate PostgreSQL database backups. To test it locally while your Docker containers are running:
-
+To test it locally while your Docker Compose stack is running:
 ```bash
 chmod +x scripts/backup_db.sh
 ./scripts/backup_db.sh
 ```
-
-**Script Design & Reliability Features:**
-- Uses **Strict Mode** (`set -euo pipefail`) so it exits immediately if any command, pipeline, or unset variable fails.
-- Verifies the database container is active before executing `pg_dump`.
-- Executes `pg_dump` securely within the Docker network context without exposing passwords.
-- Automatically cleans up old backups (keeping only the 5 most recent) to prevent disk space exhaustion.
+**Features of this script:**
+- Runs in strict mode (`set -euo pipefail`) to fail loudly on any errors.
+- Verifies the database container is actually running before attempting a backup.
+- Pipes the `pg_dump` output safely to the host machine.
+- Automatically cleans up older backups (keeps only the 5 most recent) to prevent disk space exhaustion.
 
 ---
 
-## 📊 Monitoring & Health Checks
+## 🌍 Environment Parity (Dev vs. Prod)
+A core focus of this infrastructure is maintaining parity between development and production while keeping them secure.
+- **Parity:** Both environments run the exact same PostgreSQL version and the exact same application code inside containers.
+- **Differences:** Local Development exposes ports directly to `localhost` and builds images from source for rapid iteration. Production pulls immutable artifacts from the registry, hides internal ports, routes all traffic securely through a **Caddy Reverse Proxy**, and actively monitors the stack using **Uptime Kuma**.
 
-Every service in the `docker-compose` stack utilizes native Docker `healthcheck` instructions (e.g., `pg_isready` for PostgreSQL, `curl` for the Django API). The startup order is strictly controlled using `depends_on: condition: service_healthy` to ensure database readiness before the API initializes.
-
-In the Production environment, **Uptime Kuma** is deployed on port `3001` to continuously monitor the stack:
-1. **Frontend App (HTTP):** Monitored internally via `http://frontend:80`.
-2. **Backend API Health (HTTP):** Monitored internally via `http://backend:8000/health/`.
-3. **Database Health (PostgreSQL):** Monitored directly over port `5432` using the connection string `postgres://postgres:postgres@db:5432/notes_db` and running the query `SELECT 1`.
-```
+---
+*Built by Ahmed Taha Dahmoul for the Kamka IT Assessment - Summer 2026*
