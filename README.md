@@ -4,8 +4,7 @@ This repository contains a full deployment lifecycle for a 3-tier Notes applicat
 
 ## 🚀 Live Environment (Production)
 - **Live Application (HTTPS):** https://kamka-ahmed.duckdns.org
-- **Monitoring Dashboard (Uptime Kuma):** http://52.44.45.240:3001
-*(Note: If you used a different DuckDNS name, just replace the URL above!)*
+- **Monitoring Dashboard (Uptime Kuma):** http://16.16.61.247:3001
 
 ---
 
